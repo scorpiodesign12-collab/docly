@@ -413,6 +413,12 @@ document.addEventListener('dragover',e=>{if(e.target.closest('#dz')){e.preventDe
 document.addEventListener('dragleave',e=>{$('#dz')?.classList.remove('hv')});
 document.addEventListener('drop',e=>{if(e.target.closest('#dz')){e.preventDefault();$('#dz').classList.remove('hv');setFile(e.dataTransfer.files[0])}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTop()});
+// Колёсико мыши листает ряд категорий влево-вправо (на краях прокручивает страницу как обычно)
+document.addEventListener('wheel',e=>{
+ const c=e.target.closest('.cats');if(!c||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
+ const max=c.scrollWidth-c.clientWidth,d=e.deltaY;
+ if(max>0&&((d>0&&c.scrollLeft<max-1)||(d<0&&c.scrollLeft>0))){c.scrollLeft+=d;e.preventDefault()}
+},{passive:false});
 // Пока открыто любое окно, страница под ним не прокручивается
 let lockY=0;
 new MutationObserver(()=>{const open=!!document.querySelector('.ov'),b=document.body;
