@@ -393,9 +393,20 @@ async function remove(d){
 }
 function shareSheet(id){modal(`<div class="mh"><h2>Поделиться</h2><button class="ib" data-a="close">${ic('x')}</button></div>
 <div class="sb"><div class="shr" style="margin-top:4px"><button data-a="tg"><div class="ci">${ic('tg')}</div>Telegram</button><button data-a="wa"><div class="ci">${ic('wa')}</div>WhatsApp</button><button data-a="nat"><div class="ci">${ic('share')}</div>Поделиться</button><button data-a="cp"><div class="ci">${ic('copy')}</div>Скопировать</button><button data-a="qr"><div class="ci">${ic('qr')}</div>QR-код</button></div>
-<p class="note">Telegram и WhatsApp откроют чат с названием документа. Сам файл браузер отправить не может: используйте «Поделиться» или скачайте файл и прикрепите вручную.</p></div>`,'sm',id)}
+<p class="note">Telegram и WhatsApp отправят сам файл через меню телефона. Если браузер не поддерживает отправку файлов, уйдёт ссылка на документ.</p></div>`,'sm',id)}
+const fname=d=>d.title.replace(/[\\/:*?"<>|]+/g,' ').trim()+'.'+EXT[d.mime];
+// Отправка именно файлом: системное меню «Поделиться» (там Telegram и WhatsApp). Если браузер не умеет — ссылка на файл.
+async function shareFile(d,app){
+ const f=new File([files.get(d.id)],fname(d),{type:d.mime});
+ if(navigator.canShare&&navigator.canShare({files:[f]})){
+  try{await navigator.share({files:[f],title:d.title});return}catch(e){if(e&&e.name==='AbortError')return}
+ }
+ const link=d.src?location.origin+location.pathname.replace(/[^/]*$/,'')+encodeURI(d.src):'';
+ if(!link){download(d);toast('Файл скачан — прикрепите его в чате',0)}
+ window.open(app==='tg'?'https://t.me/share/url?url='+encodeURIComponent(link||location.href)+'&text='+encodeURIComponent(d.title):'https://wa.me/?text='+encodeURIComponent(d.title+(link?'\n'+link:'')),'_blank');
+}
 async function nativeShare(d){
- const f=new File([files.get(d.id)],slug(d.title)+'.'+EXT[d.mime],{type:d.mime});
+ const f=new File([files.get(d.id)],fname(d),{type:d.mime});
  try{
   if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({title:d.title,files:[f]});
   else if(navigator.share)await navigator.share({title:d.title,text:d.title+' — Docly'});
@@ -455,8 +466,7 @@ document.addEventListener('click',e=>{
   else if(a==='del')confirmDel(d);
   else if(a==='delok')remove(d);
   else if(a==='fold'){S.recent=!S.recent;document.querySelectorAll('.fh,.fold').forEach(x=>x.classList.toggle('open',S.recent))}
-  else if(a==='tg')window.open('https://t.me/share/url?url=%20&text='+encodeURIComponent(d.title+' — Docly'),'_blank');
-  else if(a==='wa')window.open('https://wa.me/?text='+encodeURIComponent(d.title+' — Docly'),'_blank');
+  else if(a==='tg'||a==='wa')shareFile(d,a);
   else if(a==='nat')nativeShare(d);
   else if(a==='qr')qrModal(id);
   else if(a==='scan')scanModal();
