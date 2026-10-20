@@ -152,6 +152,12 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .cg input:checked+.ci{background:var(--blue);color:#fff}.cg input:checked~b{color:var(--blue)}
 .cg label:has(input:checked){background:var(--soft);border-color:var(--blue)}
 @media(max-width:430px){.acts .btn svg{display:none}.acts .btn{padding:0 8px}}
+.memo{margin-top:14px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.14);max-width:520px}
+.memo .mt{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.85;margin-bottom:8px}
+.memo .mg{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.memo span{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;line-height:1.25}
+.memo i{font-style:normal;flex:none;width:24px;height:24px;border-radius:8px;background:#fff;color:var(--blue-d);display:grid;place-items:center;font-weight:800;font-size:13px}
+@media(max-width:860px){.memo{margin-top:10px;padding:10px}.memo .mg{grid-template-columns:1fr;gap:5px}.memo span{font-size:11px}.memo i{width:20px;height:20px;border-radius:7px;font-size:11px}.hero .tx{max-width:62%}}
 </style>
 </head>
 <body>
@@ -216,7 +222,7 @@ const db=new Promise((res,rej)=>{const r=indexedDB.open('docly',1);r.onupgradene
 const tx=(m,f)=>db.then(d=>new Promise((res,rej)=>{const t=d.transaction('f',m),q=f(t.objectStore('f'));t.oncomplete=()=>res(q.result);t.onerror=()=>rej(t.error)}));
 const USERS={'2006':{name:'Никита Винарчук Александрович',born:'01.02.2006'},'1982':{name:'Анна Нечаева Алексеевна',born:'14.09.1982'}};
 // Документы, лежащие в папке сайта рядом с index.html (аккаунт -> список)
-const SEED={'2006':[['Военный Б (В)','Военный Б (В).pdf','mil'],['Военный Б(П)','Военный Б(П).pdf','mil'],['Фотографии 4x3','Фотографии 4x3.pdf','id'],['СНИЛС(К,В)','СНИЛС(К,В).pdf','id'],['Свидетельство о рожд, ДНР (К,В)','Свидетельство о рожд, ДНР (К,В).pdf','id'],['ПОЛИС (К,В)','ПОЛИС (К,В).pdf','med'],['Свидетельство о рег(К,В)','Свидетельство о рег(К,В).pdf','id']],'1982':[]};
+const SEED={'2006':[['Военный Б (В)','Военный Б (В).pdf','mil'],['Военный Б(П)','Военный Б(П).pdf','mil'],['Фотографии 4x3','Фотографии 4x3.pdf','id'],['СНИЛС(К,В)','СНИЛС(К,В).pdf','id'],['Свидетельство о рожд, ДНР (К,В)','Свидетельство о рожд, ДНР (К,В).pdf','id'],['ПОЛИС (К,В)','ПОЛИС (К,В).pdf','med'],['Свидетельство о рег(К,В)','Свидетельство о рег(К,В).pdf','id'],['Аттестат за 11кл(К,В)','Аттетсат за 11кл(К,В).pdf','study'],['Аттестат за 11кл(К,П)','Аттетсат за 11кл(К,П).pdf','study'],['Аттестат за 9кл (К,П)','Аттестат за 9кл (К,П).pdf','study'],['Аттестат за 9кл(К,В)','Аттестат за 9кл(К,В).pdf','study'],['Удостоверение ДНР(О,П)','Удостоверение ДНР(О,П).pdf','id'],['ИНН РФ(К)','ИНН РФ(К).pdf','id']],'1982':[]};
 let me=localStorage.getItem('docly.user');if(!USERS[me])me=null;
 let docs=null,prof={name:''};
 const dkey=()=>'docly.docs.'+me,gkey=()=>'docly.gone.'+me;
@@ -241,7 +247,9 @@ const mkSvg=()=>new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="640" h
 const LK={'К':'K','В':'B','х':'x'},LKr={'K':'К','B':'В','x':'х'};
 const swp=(p,m)=>p.replace(/\([^)]*\)/g,t=>t.replace(/./g,c=>m[c]||c)).replace(/(\d)([xх])(\d)/g,(_,a,b,c)=>a+(m[b]||b)+c);
 async function fetchBlob(path){
- for(const v of new Set([path,path.normalize('NFC'),path.normalize('NFD'),swp(path,LK),swp(path,LKr)])){
+ const base=[path,path.normalize('NFC'),path.normalize('NFD'),swp(path,LK),swp(path,LKr)],all=new Set();
+ base.forEach(b=>{[b,b.replace('Аттетсат','Аттестат'),b.replace('Аттестат','Аттетсат')].forEach(t=>{all.add(t);all.add(t.replace(/ \(/,'('));all.add(t.replace(/(\S)\(/,'$1 ('))})});
+ for(const v of all){
   try{const r=await fetch(encodeURI(v));if(r.ok){const b=await r.blob();return new Blob([b],{type:/\.pdf$/i.test(v)?'application/pdf':b.type})}}catch(e){}
  }
  throw 0;
@@ -384,7 +392,8 @@ function dyn(anim){
  const tile=(c,i)=>{const n=docs.filter(d=>d.cat===c[0]).length;return `<button class="tile" data-go="c:${c[0]}" style="--d:${i*.04}s"><div class="ci">${ic(c[2])}</div><div><b>${c[1]}</b><span>${n} ${word(n)}</span></div></button>`};
  if(v==='home'&&!q){
   const n=docs.length,fav=docs.filter(d=>d.fav).length;
-  h=`<div class="hero"><div class="tx"><small>Docly<span class="tg"> · Все важные документы всегда под рукой.</span></small><b>${n}</b><em>${word(n)}</em><div class="hs"><span>В избранном: ${fav}</span><span>Размер: ${fmt(docs.reduce((a,d)=>a+d.size,0))}</span></div></div><img class="mascot" src="${MASCOT}" alt=""></div>
+  h=`<div class="hero"><div class="tx"><small>Docly<span class="tg"> · Все важные документы всегда под рукой.</span></small><b>${n}</b><em>${word(n)}</em><div class="hs"><span>В избранном: ${fav}</span><span>Размер: ${fmt(docs.reduce((a,d)=>a+d.size,0))}</span></div>
+  <div class="memo"><div class="mt">Памятка</div><div class="mg"><span><i>К</i>Копия документа</span><span><i>В</i>Важные данные в документе</span><span><i>П</i>Полностью вся ксерокопия</span><span><i>О</i>Оригинал документа</span></div></div></div><img class="mascot" src="${MASCOT}" alt=""></div>
   <button class="cta" data-a="add">${ic('plus')}Добавить документ</button>`;
   if(prefs.cats&&enCats().length)h+=`<div class="sec"><h2>Категории</h2></div><div class="cats">${enCats().map((c,i)=>{const k=docs.filter(d=>d.cat===c[0]).length;return `<button class="cat" data-go="c:${c[0]}" style="--d:${i*.05}s"><div class="ci">${ic(c[2])}</div><b>${c[1]}</b><span>${k} ${word(k)}</span></button>`}).join('')}</div>`;
   if(prefs.recent){const r=base().slice(0,4);h+=`<button class="fh ${S.recent?'open':''}" data-a="fold"><h2>Последние документы</h2><span>${r.length}${ic('chev')}</span></button><div class="fold ${S.recent?'open':''}"><div>${lst(r)}</div></div>`}
