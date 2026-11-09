@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>Docly</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><title>Docly</title>
 <style>
 /* ===== ЦВЕТА И РАЗМЕРЫ: меняйте здесь ===== */
 :root{--blue:#2F6BFF;--blue-d:#1E3FB2;--navy:#0A1450;--soft:#EAF1FF;--soft2:#C3D7FC;--field:#F3F6FD;--line:#E6ECF8;--text:#0B1330;--mut:#6B7794;--red:#E5484D;--sh:0 8px 28px rgba(47,107,255,.10);--side:248px}
@@ -423,7 +423,7 @@ function render(){
   <div class="row"><div class="ci">${ic('folder')}</div><div>Категории<small>Ряд карточек категорий</small></div>${sw('cats',prefs.cats,'data-pref')}</div>
   <div class="row"><div class="ci">${ic('doc')}</div><div>Последние документы<small>Сворачиваемый список</small></div>${sw('recent',prefs.recent,'data-pref')}</div></div>
   <div class="card"><h3>Категории документов</h3>${CATS.map(c=>`<div class="row"><div class="ci">${ic(c[2])}</div><div>${c[1]}</div>${sw(c[0],!prefs.off.includes(c[0]),'data-cat')}</div>`).join('')}</div>
-  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p></div>`;
+  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 4 (отправка только файлом)</p></div>`;
  }else{
   if(v==='pw')h=`<div class="top"><div style="display:flex;align-items:center;gap:14px"><button class="ib" data-go="home" aria-label="Назад">${ic('back')}</button><div><h1>Пароли</h1><p>Логины и пароли от сервисов</p></div></div><div style="display:flex;gap:8px"><button class="ib" data-pa="addc" aria-label="Добавить пароль" title="Добавить пароль" style="background:var(--blue);color:#fff">${ic('plus')}</button><button class="ib" data-pa="manage" aria-label="Выбрать сервисы" title="Выбрать сервисы">${ic('gear')}</button></div></div>${searchBox()}<div id="dyn" style="margin-top:18px"></div>`;
   else{const cat=v.startsWith('c:'),t=v==='docs'?'Документы':v==='favs'?'Избранное':catName(v.slice(2));
