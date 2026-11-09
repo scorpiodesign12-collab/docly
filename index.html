@@ -252,6 +252,28 @@ const SEED={'2006':[['Военный Б (В)','Военный Б (В).pdf','mil'
 let me=localStorage.getItem('docly.user');if(!USERS[me])me=null;
 let docs=null,prof={name:''},pw={};
 const pwKey=()=>'docly.pw.'+me;
+// Контакты профиля: телефоны (номер + оператор) и IMEI. t:'ph'|'im'
+const infoKey=()=>'docly.info.'+me;
+const INFO_SEED={'2006':[{t:'ph',v:'+79693005344',o:'Билайн'},{t:'im',v:'863513088652498'},{t:'im',v:'863513088652480'}]};
+let info=[];
+function loadInfo(){const raw=localStorage.getItem(infoKey());if(raw===null){info=JSON.parse(JSON.stringify(INFO_SEED[me]||[]));saveInfo()}else{try{info=JSON.parse(raw)}catch(e){info=[]}}}
+const saveInfo=()=>localStorage.setItem(infoKey(),JSON.stringify(info));
+function infoRows(){
+ let ph=0,im=0;
+ const rows=info.map((x,i)=>{const lab=x.t==='ph'?'Телефон '+(++ph):'IMEI '+(++im);
+  return `<div class="row"><div>${lab}<small>${esc(x.v)}${x.o?' · '+esc(x.o):''}</small></div><button class="ib" data-a="icopy" data-i="${i}" aria-label="Копировать" title="Копировать">${ic('copy')}</button><button class="ib" data-a="iedit" data-i="${i}" aria-label="Изменить" title="Изменить">${ic('edit')}</button></div>`}).join('');
+ return rows+`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn s" data-a="iadd" data-t="ph">${ic('plus')}Номер</button><button class="btn s" data-a="iadd" data-t="im">${ic('plus')}IMEI</button></div>`;
+}
+function infoModal(i,t){
+ const x=i>=0?info[i]:{t,v:'',o:t==='ph'&&info.some(y=>y.t==='ph')?'Добросвязь':''};
+ const ttl=x.t==='ph'?(i>=0?'Изменить номер':'Новый номер'):(i>=0?'Изменить IMEI':'Новый IMEI');
+ modal(`<div class="mh"><h2>${ttl}</h2><button class="ib" data-a="close">${ic('x')}</button></div>
+ <div class="sb"><div class="fm" style="margin-top:4px"><label class="f">${x.t==='ph'?'Номер телефона':'IMEI'}<input class="fi" id="iv" value="${esc(x.v)}" inputmode="${x.t==='ph'?'tel':'numeric'}" autocomplete="off" placeholder="${x.t==='ph'?'+7…':'15 цифр'}"></label>
+ ${x.t==='ph'?`<label class="f">Оператор<input class="fi" id="io" value="${esc(x.o||'')}" autocomplete="off" placeholder="Билайн, Добросвязь…"></label>`:''}
+ <p class="note" style="margin:0">Чтобы убрать запись из профиля, нажмите «Стереть».</p></div></div>
+ <div class="sf"><button class="cta" data-a="isave" data-i="${i}" data-t="${x.t}">Сохранить</button>${i>=0?`<button class="btn d" data-a="idel" data-i="${i}">${ic('trash')}Стереть</button>`:''}</div>`,'sm');
+}
+
 const dkey=()=>'docly.docs.'+me,gkey=()=>'docly.gone.'+me;
 // Настройки интерфейса: что показывать (off = выключенные категории)
 let prefs=Object.assign({cats:true,recent:true,pw:false,off:[]},JSON.parse(localStorage.getItem('docly.prefs')||'{}'));
@@ -288,7 +310,7 @@ async function blobOf(d){
  if(b)files.set(d.id,b);return b;
 }
 async function init(){
- prof={name:USERS[me].name};
+ prof={name:USERS[me].name};loadInfo();
  docs=JSON.parse(localStorage.getItem(dkey())||'[]');
  try{pw=JSON.parse(localStorage.getItem(pwKey())||'{}')}catch(e){pw={}}
  try{pwOff=JSON.parse(localStorage.getItem(pwOffKey())||'[]')}catch(e){pwOff=[]}
@@ -390,8 +412,8 @@ function render(){
   const sw=(k,on,a)=>`<label class="sw"><input type="checkbox" ${a}="${k}" ${on?'checked':''}><i></i></label>`;
   h=`<div class="top"><div><h1>Настройки</h1><p>Профиль, QR и категории</p></div></div>
   <div class="card"><h3>Профиль</h3><div class="av big" id="pav">${ini()}</div>
-  <div class="row"><div>ФИО<small>${esc(prof.name)}</small></div></div><div class="row"><div>Дата рождения<small>${USERS[me].born}</small></div></div><div class="row"><div>ID аккаунта<small>${me}</small></div></div>
-  <button class="btn s" data-a="logout">Выйти из аккаунта</button></div>
+  <div class="row"><div>ФИО<small>${esc(prof.name)}</small></div></div><div class="row"><div>Дата рождения<small>${USERS[me].born}</small></div></div><div class="row"><div>ID аккаунта<small>${me}</small></div></div>${infoRows()}
+  <button class="btn s" style="margin-top:14px" data-a="logout">Выйти из аккаунта</button></div>
   <div class="card"><h3>Получить документ</h3><p>Отсканируйте QR-код документа, который вам отправили через Docly.</p><button class="cta" data-a="scan">${ic('qr')}Сканировать QR</button></div>
   <div class="card"><h3>Разделы</h3>
   <div class="row"><div class="ci">${ic('lock')}</div><div>Пароли<small>Замочек: доступы к сервисам и магазинам</small></div>${sw('pw',prefs.pw,'data-pref')}</div></div>
@@ -510,22 +532,55 @@ function shareSheet(id){modal(`<div class="mh"><h2>Поделиться</h2><but
 <div class="sb"><div class="shr" style="margin-top:4px"><button data-a="tg"><div class="ci">${ic('tg')}</div>Telegram</button><button data-a="wa"><div class="ci">${ic('wa')}</div>WhatsApp</button><button data-a="nat"><div class="ci">${ic('share')}</div>Поделиться</button><button data-a="qr"><div class="ci">${ic('qr')}</div>QR-код</button></div>
 <p class="note">Telegram и WhatsApp отправят сам файл через меню телефона. Если браузер не поддерживает отправку файлов, уйдёт ссылка на документ.</p></div>`,'sm',id)}
 const fname=d=>d.title.replace(/[\\/:*?"<>|]+/g,' ').trim()+'.'+EXT[d.mime];
-// Отправка именно файлом: системное меню «Поделиться» (там Telegram и WhatsApp). Если браузер не умеет — ссылка на файл.
+// Отправка файла. Порядок попыток:
+// 1) системное «Поделиться» браузера (navigator.share с файлом)
+// 2) нативный плагин в APK (Capacitor Filesystem+Share), если он есть
+// 3) прямой переход в приложение Telegram / WhatsApp (ссылка на файл или название)
+const blobB64=b=>new Promise(r=>{const x=new FileReader();x.onload=()=>r(String(x.result).split(',')[1]);x.readAsDataURL(b)});
+async function capShare(d,blob){
+ const P=window.Capacitor&&window.Capacitor.Plugins;
+ if(!P||!P.Filesystem||!P.Share)return false;
+ try{
+  const w=await P.Filesystem.writeFile({path:fname(d),data:await blobB64(blob),directory:'CACHE'});
+  await P.Share.share({title:d.title,url:w.uri,dialogTitle:'Поделиться'});return true;
+ }catch(e){return !!(e&&/cancel/i.test(String(e.message||e)))}
+}
+function openApp(scheme,web){
+ let left=false;const h=()=>{if(document.hidden)left=true};document.addEventListener('visibilitychange',h);
+ location.href=scheme;
+ setTimeout(()=>{document.removeEventListener('visibilitychange',h);if(!left&&!document.hidden)window.open(web,'_blank')},1200);
+}
+function appLink(d){
+ return d.src&&/^https?:$/.test(location.protocol)?location.origin+location.pathname.replace(/[^/]*$/,'')+encodeURI(d.src):'';
+}
 async function shareFile(d,app){
- const f=new File([await blobOf(d)],fname(d),{type:d.mime});
- if(navigator.canShare&&navigator.canShare({files:[f]})){
-  try{await navigator.share({files:[f],title:d.title});return}catch(e){if(e&&e.name==='AbortError')return}
+ let blob=null;try{blob=await blobOf(d)}catch(e){}
+ if(blob){
+  const f=new File([blob],fname(d),{type:d.mime});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){
+   try{await navigator.share({files:[f],title:d.title});return}catch(e){if(e&&e.name==='AbortError')return}
+  }
+  if(await capShare(d,blob))return;
  }
- const link=d.src?location.origin+location.pathname.replace(/[^/]*$/,'')+encodeURI(d.src):'';
- if(!link){download(d);toast('Файл скачан — прикрепите его в чате',0)}
- window.open(app==='tg'?'https://t.me/share/url?url='+encodeURIComponent(link||location.href)+'&text='+encodeURIComponent(d.title):'https://wa.me/?text='+encodeURIComponent(d.title+(link?'\n'+link:'')),'_blank');
+ const link=appLink(d),text=d.title+(link?'\n'+link:'');
+ if(!link&&blob){download(d);toast('Файл скачан — прикрепите его в чате',0)}
+ if(app==='tg')openApp('tg://msg?text='+encodeURIComponent(text),'https://t.me/share/url?url='+encodeURIComponent(link||' ')+'&text='+encodeURIComponent(d.title));
+ else openApp('whatsapp://send?text='+encodeURIComponent(text),'https://wa.me/?text='+encodeURIComponent(text));
 }
 async function nativeShare(d){
- const f=new File([await blobOf(d)],fname(d),{type:d.mime});
+ let blob=null;try{blob=await blobOf(d)}catch(e){}
  try{
-  if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({title:d.title,files:[f]});
-  else if(navigator.share)await navigator.share({title:d.title,text:d.title+' — Docly'});
-  else toast('Браузер не поддерживает «Поделиться»',1);
+  if(blob){
+   const f=new File([blob],fname(d),{type:d.mime});
+   if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({title:d.title,files:[f]});return}
+   if(await capShare(d,blob))return;
+  }
+  const link=appLink(d);
+  if(navigator.share){await navigator.share({title:d.title,text:d.title,url:link||undefined});return}
+  // Браузер/WebView без «Поделиться»: копируем ссылку или скачиваем файл
+  if(link){toast(await copyText(link)?'Ссылка скопирована':'Не удалось скопировать',0)}
+  else if(blob){download(d);toast('Файл скачан — отправьте его из «Загрузок»',0)}
+  else toast('Не удалось подготовить файл',1);
  }catch(e){}
 }
 
@@ -668,6 +723,14 @@ document.addEventListener('click',e=>{
    m.innerHTML=`<button data-a="share">${ic('share')}Поделиться</button><button data-a="edit">${ic('edit')}Изменить</button><button data-a="fav">${ic('star')}${d.fav?'Убрать из избранного':'В избранное'}</button><button data-a="del" style="color:var(--red)">${ic('trash')}Удалить</button>`;
    document.body.appendChild(m);m.style.top=Math.min(r.bottom+6,innerHeight-160)+'px';m.style.left=Math.max(10,Math.min(r.right-200,innerWidth-210))+'px';return;
   }
+  if(a==='icopy'){copyText(info[+b.dataset.i].v).then(ok=>toast(ok?'Скопировано':'Не удалось скопировать',ok?0:1));return}
+  if(a==='iedit')return infoModal(+b.dataset.i);
+  if(a==='iadd')return infoModal(-1,b.dataset.t);
+  if(a==='idel'){info.splice(+b.dataset.i,1);saveInfo();closeTop();render();return toast('Удалено')}
+  if(a==='isave'){const i=+b.dataset.i,t=b.dataset.t,v=$('#iv').value.trim();
+   if(!v){if(i>=0){info.splice(i,1);saveInfo();closeTop();render();return toast('Удалено')}return toast('Введите значение',1)}
+   const x={t,v};if(t==='ph')x.o=$('#io').value.trim();
+   if(i>=0)info[i]=x;else info.push(x);saveInfo();closeTop();render();return toast('Сохранено')}
   if(a==='open')window.open(url(id),'_blank');
   else if(a==='dl')download(d);
   else if(a==='add')addModal();
