@@ -322,7 +322,6 @@ async function init(){
  if(add)save();
  render();incoming();
  loadBlobs();
- loadSy();syncNow();
 }
 async function loadBlobs(){
  const bad=[];
@@ -415,7 +414,6 @@ function render(){
   <div class="card"><h3>Профиль</h3><div class="av big" id="pav">${ini()}</div>
   <div class="row"><div>ФИО<small>${esc(prof.name)}</small></div></div><div class="row"><div>Дата рождения<small>${USERS[me].born}</small></div></div><div class="row"><div>ID аккаунта<small>${me}</small></div></div>${infoRows()}
   <button class="btn s" style="margin-top:14px" data-a="logout">Выйти из аккаунта</button></div>
-  ${syCard()}
   <div class="card"><h3>Получить документ</h3><p>Отсканируйте QR-код документа, который вам отправили через Docly.</p><button class="cta" data-a="scan">${ic('qr')}Сканировать QR</button></div>
   <div class="card"><h3>Разделы</h3>
   <div class="row"><div class="ci">${ic('lock')}</div><div>Пароли<small>Замочек: доступы к сервисам и магазинам</small></div>${sw('pw',prefs.pw,'data-pref')}</div></div>
@@ -423,7 +421,7 @@ function render(){
   <div class="row"><div class="ci">${ic('folder')}</div><div>Категории<small>Ряд карточек категорий</small></div>${sw('cats',prefs.cats,'data-pref')}</div>
   <div class="row"><div class="ci">${ic('doc')}</div><div>Последние документы<small>Сворачиваемый список</small></div>${sw('recent',prefs.recent,'data-pref')}</div></div>
   <div class="card"><h3>Категории документов</h3>${CATS.map(c=>`<div class="row"><div class="ci">${ic(c[2])}</div><div>${c[1]}</div>${sw(c[0],!prefs.off.includes(c[0]),'data-cat')}</div>`).join('')}</div>
-  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 4 (отправка только файлом)</p></div>`;
+  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 5</p></div>`;
  }else{
   if(v==='pw')h=`<div class="top"><div style="display:flex;align-items:center;gap:14px"><button class="ib" data-go="home" aria-label="Назад">${ic('back')}</button><div><h1>Пароли</h1><p>Логины и пароли от сервисов</p></div></div><div style="display:flex;gap:8px"><button class="ib" data-pa="addc" aria-label="Добавить пароль" title="Добавить пароль" style="background:var(--blue);color:#fff">${ic('plus')}</button><button class="ib" data-pa="manage" aria-label="Выбрать сервисы" title="Выбрать сервисы">${ic('gear')}</button></div></div>${searchBox()}<div id="dyn" style="margin-top:18px"></div>`;
   else{const cat=v.startsWith('c:'),t=v==='docs'?'Документы':v==='favs'?'Избранное':catName(v.slice(2));
@@ -532,7 +530,7 @@ async function remove(d){
 }
 function shareSheet(id){modal(`<div class="mh"><h2>Поделиться</h2><button class="ib" data-a="close">${ic('x')}</button></div>
 <div class="sb"><div class="shr" style="margin-top:4px"><button data-a="tg"><div class="ci">${ic('tg')}</div>Telegram</button><button data-a="wa"><div class="ci">${ic('wa')}</div>WhatsApp</button><button data-a="nat"><div class="ci">${ic('share')}</div>Поделиться</button><button data-a="qr"><div class="ci">${ic('qr')}</div>QR-код</button></div>
-<p class="note">Telegram и WhatsApp отправят сам файл через меню телефона. Если браузер не поддерживает отправку файлов, уйдёт ссылка на документ.</p></div>`,'sm',id)}
+<p class="note">Файл уходит через меню телефона. Если оно недоступно, файл сохранится в «Загрузки» — прикрепите его в чате.</p></div>`,'sm',id)}
 const fname=d=>d.title.replace(/[\\/:*?"<>|]+/g,' ').trim()+'.'+EXT[d.mime];
 // Отправка ТОЛЬКО файла (без текста и ссылок). Порядок попыток:
 // 1) системное «Поделиться» браузера (navigator.share с файлом)
@@ -621,102 +619,6 @@ const cTuple=c=>{let h=0;for(const ch of c.name)h=(h*31+ch.charCodeAt(0))>>>0;re
 const pwAll=()=>[...PW,...pwC.map(cTuple)];
 let pwOff=[];const pwOffKey=()=>'docly.pwoff.'+me;
 const savePwOff=()=>localStorage.setItem(pwOffKey(),JSON.stringify(pwOff));
-/* ===== Синхронизация между устройствами (приватный GitHub Gist, данные шифруются на устройстве) ===== */
-const syncKey=()=>'docly.sync.'+me,tsKey=()=>'docly.sync.ts.'+me;
-let sy=null,syBusy=false,syApplying=false,syTimer=null;
-const saveSy=()=>localStorage.setItem(syncKey(),JSON.stringify(sy));
-const loadSy=()=>{try{sy=JSON.parse(localStorage.getItem(syncKey())||'null')}catch(e){sy=null}};
-const syB=u=>{let t='';new Uint8Array(u).forEach(c=>t+=String.fromCharCode(c));return btoa(t)};
-const syU=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-async function syKeyFor(pass,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
-async function syEnc(obj,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await syKeyFor(pass,salt);const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(JSON.stringify(obj)));return JSON.stringify({v:1,s:syB(salt),i:syB(iv),d:syB(ct)})}
-async function syDec(txt,pass){const o=JSON.parse(txt),k=await syKeyFor(pass,syU(o.s));const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:syU(o.i)},k,syU(o.d));return JSON.parse(new TextDecoder().decode(pt))}
-const GH='https://api.github.com',ghH=()=>({'Authorization':'token '+sy.tok,'Accept':'application/vnd.github+json'});
-const syDesc=()=>'docly-sync-'+me,syFile=()=>'docly-'+me+'.json';
-const syKeys=()=>({pw:pwKey(),c:pwCKey(),off:pwOffKey(),info:infoKey()});
-async function syFind(){
- if(sy.gid)return sy.gid;
- for(let pg=1;pg<=3;pg++){const r=await fetch(GH+'/gists?per_page=100&page='+pg,{headers:ghH()});if(!r.ok)throw new Error('http'+r.status);
-  const l=await r.json();const g=l.find(x=>x.description===syDesc());if(g){sy.gid=g.id;saveSy();return g.id}if(l.length<100)break}
- return null;
-}
-async function syRemote(){
- const gid=await syFind();if(!gid)return null;
- const r=await fetch(GH+'/gists/'+gid,{headers:ghH()});if(!r.ok){if(r.status===404){sy.gid='';saveSy()}throw new Error('http'+r.status)}
- const f=(await r.json()).files[syFile()];if(!f)return null;
- return f.truncated?await (await fetch(f.raw_url)).text():f.content;
-}
-async function syPush(){
- const ts=+localStorage.getItem(tsKey())||Date.now(),d={};
- Object.entries(syKeys()).forEach(([n,k])=>d[n]=localStorage.getItem(k));
- const content=await syEnc({ts,d},sy.pass),body=JSON.stringify({description:syDesc(),public:false,files:{[syFile()]:{content}}});
- const gid=await syFind();
- const r=await fetch(GH+'/gists'+(gid?'/'+gid:''),{method:gid?'PATCH':'POST',headers:Object.assign({'Content-Type':'application/json'},ghH()),body});
- if(!r.ok)throw new Error('http'+r.status);
- if(!gid){sy.gid=(await r.json()).id;saveSy()}
- localStorage.setItem(tsKey(),ts);
-}
-function syApply(rb){
- syApplying=true;
- try{
-  Object.entries(syKeys()).forEach(([n,k])=>{const v=rb.d[n];if(v===null||v===undefined)localStorage.removeItem(k);else localStorage.setItem(k,v)});
-  localStorage.setItem(tsKey(),rb.ts);
- }finally{syApplying=false}
- try{pw=JSON.parse(localStorage.getItem(pwKey())||'{}')}catch(e){pw={}}
- try{pwOff=JSON.parse(localStorage.getItem(pwOffKey())||'[]')}catch(e){pwOff=[]}
- try{pwC=JSON.parse(localStorage.getItem(pwCKey())||'[]')}catch(e){pwC=[]}
- loadInfo();render();
-}
-function syErr(e){
- const m=String(e&&e.message||e);
- if(e&&e.name==='OperationError')return 'Неверный пароль шифрования';
- if(/http401|http403/.test(m))return 'Токен не подходит (нужна галочка gist)';
- return 'Нет связи или не удалось синхронизировать';
-}
-async function syncNow(manual){
- if(!sy||syBusy)return;
- if(!(window.crypto&&crypto.subtle)){if(manual)toast('Шифрование недоступно: откройте сайт по https',1);return}
- syBusy=true;
- try{
-  const txt=await syRemote(),lts=+localStorage.getItem(tsKey())||0;
-  if(txt){
-   const rb=await syDec(txt,sy.pass);
-   if(rb.ts>lts){syApply(rb);if(manual)toast('Данные получены с другого устройства')}
-   else if(rb.ts<lts){await syPush();if(manual)toast('Данные отправлены')}
-   else if(manual)toast('Всё актуально')
-  }else{
-   if(!lts)localStorage.setItem(tsKey(),Date.now());
-   await syPush();if(manual)toast('Синхронизация включена')
-  }
- }catch(e){if(manual)toast(syErr(e),1)}
- finally{syBusy=false}
-}
-function syPushSoon(){
- if(!sy)return;clearTimeout(syTimer);
- syTimer=setTimeout(async()=>{
-  if(syBusy){syPushSoon();return}
-  syBusy=true;try{await syPush()}catch(e){}finally{syBusy=false}
- },1500);
-}
-// любое изменение паролей/профиля -> метка времени и отправка
-const _si=Storage.prototype.setItem;
-Storage.prototype.setItem=function(k,v){
- _si.call(this,k,v);
- if(this===localStorage&&!syApplying&&me&&(k===pwKey()||k===pwCKey()||k===pwOffKey()||k===infoKey())){_si.call(localStorage,tsKey(),Date.now());syPushSoon()}
-};
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&sy)syncNow()});
-function syCard(){
- return `<div class="card"><h3>Синхронизация</h3><p>${sy?'Включена: пароли и контакты автоматически совпадают на телефоне и ПК.':'Чтобы пароли и контакты были на всех устройствах, подключите синхронизацию. Данные шифруются на устройстве, в GitHub уходит только шифр.'}</p>
- <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${sy?`<button class="btn p" data-a="sync">${ic('check')}Синхронизировать</button><button class="btn s" data-a="syoff">Отключить</button>`:`<button class="cta" data-a="syset">Подключить</button>`}</div></div>`;
-}
-function syModal(){
- modal(`<div class="mh"><h2>Синхронизация</h2><button class="ib" data-a="close">${ic('x')}</button></div>
- <div class="sb"><div class="fm" style="margin-top:4px">
- <p class="note" style="margin:0">1) Откройте github.com/settings/tokens/new?scopes=gist (аккаунт GitHub нужен бесплатный), назовите токен Docly, отметьте только «gist» и создайте.<br>2) Вставьте токен ниже.<br>3) Придумайте пароль шифрования и введите <b>такие же</b> токен и пароль на втором устройстве. Забытый пароль восстановить нельзя.</p>
- <label class="f">Токен GitHub<input class="fi" id="syt" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_…" value="${esc(sy&&sy.tok||'')}"></label>
- <label class="f">Пароль шифрования<input class="fi" id="syp" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Любой, но одинаковый на всех устройствах"></label></div></div>
- <div class="sf"><button class="cta" data-a="sysave">Подключить</button></div>`,'sm');
-}
 
 function pwView(q){
  const t=q.toLowerCase();let h='';
@@ -799,11 +701,6 @@ document.addEventListener('click',e=>{
    m.innerHTML=`<button data-a="share">${ic('share')}Поделиться</button><button data-a="edit">${ic('edit')}Изменить</button><button data-a="fav">${ic('star')}${d.fav?'Убрать из избранного':'В избранное'}</button><button data-a="del" style="color:var(--red)">${ic('trash')}Удалить</button>`;
    document.body.appendChild(m);m.style.top=Math.min(r.bottom+6,innerHeight-160)+'px';m.style.left=Math.max(10,Math.min(r.right-200,innerWidth-210))+'px';return;
   }
-  if(a==='syset')return syModal();
-  if(a==='sysave'){const tok=$('#syt').value.trim(),pass=$('#syp').value;if(!tok||!pass)return toast('Введите токен и пароль',1);
-   sy={tok,pass,gid:(sy&&sy.tok===tok&&sy.gid)||''};saveSy();closeTop();render();syncNow(true);return}
-  if(a==='sync'){syncNow(true);return}
-  if(a==='syoff'){sy=null;localStorage.removeItem(syncKey());render();return toast('Синхронизация отключена')}
   if(a==='icopy'){copyText(info[+b.dataset.i].v).then(ok=>toast(ok?'Скопировано':'Не удалось скопировать',ok?0:1));return}
   if(a==='iedit')return infoModal(+b.dataset.i);
   if(a==='iadd')return infoModal(-1,b.dataset.t);
