@@ -295,18 +295,25 @@ const mkSvg=()=>new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="640" h
 
 const LK={'К':'K','В':'B','х':'x'},LKr={'K':'К','B':'В','x':'х'};
 const swp=(p,m)=>p.replace(/\([^)]*\)/g,t=>t.replace(/./g,c=>m[c]||c)).replace(/(\d)([xх])(\d)/g,(_,a,b,c)=>a+(m[b]||b)+c);
-async function fetchBlob(path){
+async function readProg(r,cb){
+ const len=+r.headers.get('content-length')||0;
+ if(!cb||!r.body||!len)return r.blob();
+ const rd=r.body.getReader(),parts=[];let got=0;
+ for(;;){const x=await rd.read();if(x.done)break;parts.push(x.value);got+=x.value.length;cb(Math.min(99,Math.round(got/len*100)))}
+ return new Blob(parts,{type:r.headers.get('content-type')||''});
+}
+async function fetchBlob(path,cb){
  const base=[path,path.normalize('NFC'),path.normalize('NFD'),swp(path,LK),swp(path,LKr)],all=new Set();
  base.forEach(b=>{[b,b.replace('Аттетсат','Аттестат'),b.replace('Аттестат','Аттетсат')].forEach(t=>{all.add(t);all.add(t.replace(/ \(/,'('));all.add(t.replace(/(\S)\(/,'$1 ('))})});
  for(const v of all){
-  try{const r=await fetch(encodeURI(v));if(r.ok){const b=await r.blob();return new Blob([b],{type:/\.pdf$/i.test(v)?'application/pdf':b.type})}}catch(e){}
+  try{const r=await fetch(encodeURI(v));if(r.ok){const b=await readProg(r,cb);return new Blob([b],{type:/\.pdf$/i.test(v)?'application/pdf':b.type})}}catch(e){}
  }
  throw 0;
 }
-async function blobOf(d){
+async function blobOf(d,cb){
  if(files.has(d.id))return files.get(d.id);
  let b=null;try{b=await tx('readonly',s=>s.get(d.id))}catch(e){}
- if(!b&&d.src)b=await fetchBlob(d.src);
+ if(!b&&d.src)b=await fetchBlob(d.src,cb);
  if(b)files.set(d.id,b);return b;
 }
 async function init(){
@@ -421,7 +428,7 @@ function render(){
   <div class="row"><div class="ci">${ic('folder')}</div><div>Категории<small>Ряд карточек категорий</small></div>${sw('cats',prefs.cats,'data-pref')}</div>
   <div class="row"><div class="ci">${ic('doc')}</div><div>Последние документы<small>Сворачиваемый список</small></div>${sw('recent',prefs.recent,'data-pref')}</div></div>
   <div class="card"><h3>Категории документов</h3>${CATS.map(c=>`<div class="row"><div class="ci">${ic(c[2])}</div><div>${c[1]}</div>${sw(c[0],!prefs.off.includes(c[0]),'data-cat')}</div>`).join('')}</div>
-  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 5</p></div>`;
+  <div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 7${window.AndroidShare?' · APK: мост подключён':(isWV?' · APK: мост НЕ найден (старая сборка)':'')}</p></div>`;
  }else{
   if(v==='pw')h=`<div class="top"><div style="display:flex;align-items:center;gap:14px"><button class="ib" data-go="home" aria-label="Назад">${ic('back')}</button><div><h1>Пароли</h1><p>Логины и пароли от сервисов</p></div></div><div style="display:flex;gap:8px"><button class="ib" data-pa="addc" aria-label="Добавить пароль" title="Добавить пароль" style="background:var(--blue);color:#fff">${ic('plus')}</button><button class="ib" data-pa="manage" aria-label="Выбрать сервисы" title="Выбрать сервисы">${ic('gear')}</button></div></div>${searchBox()}<div id="dyn" style="margin-top:18px"></div>`;
   else{const cat=v.startsWith('c:'),t=v==='docs'?'Документы':v==='favs'?'Избранное':catName(v.slice(2));
@@ -545,9 +552,41 @@ async function capShare(d,blob){
   await P.Share.share({files:[w.uri]});return true;
  }catch(e){return !!(e&&/cancel/i.test(String(e.message||e)))}
 }
-async function sendFile(d){
+const isWV=/; wv\)/.test(navigator.userAgent);
+async function dlProgress(d,btn){
+ if(btn.dataset.busy)return;btn.dataset.busy=1;
+ const html=btn.innerHTML;btn.style.minWidth=btn.offsetWidth+'px';
+ const set=p=>{btn.innerHTML=ic('dl')+p+'%'};
+ try{
+  set(0);
+  const blob=await blobOf(d,set);
+  if(!blob)throw new Error('Файл недоступен');
+  set(100);
+  if(window.AndroidShare&&window.AndroidShare.saveFile){
+   const ok=window.AndroidShare.saveFile(await blobB64(blob),fname(d),d.mime||'application/octet-stream');
+   if(!ok)throw new Error('Не удалось сохранить');
+   toast('Сохранено в «Загрузки»',0);
+  }else{
+   const a=document.createElement('a'),u=URL.createObjectURL(blob);
+   a.href=u;a.download=fname(d);document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(u),30000);
+   toast('Файл скачан',0);
+  }
+  btn.innerHTML=ic('check')+'Готово';
+ }catch(e){toast('Ошибка скачивания: '+(e&&e.message||e),1);btn.innerHTML=html}
+ setTimeout(()=>{if(btn.isConnected){btn.innerHTML=html;btn.style.minWidth=''}delete btn.dataset.busy},1400);
+}
+async function sendFile(d,app){
  let blob=null;try{blob=await blobOf(d)}catch(e){}
  if(!blob){toast('Не удалось подготовить файл',1);return 0}
+ // Нативный мост в Android-приложении (см. MainActivity.kt)
+ if(window.AndroidShare&&window.AndroidShare.shareFile){
+  try{
+   const pkg=app==='tg'?'org.telegram.messenger':app==='wa'?'com.whatsapp':'';
+   window.AndroidShare.shareFile(await blobB64(blob),fname(d),d.mime||'application/octet-stream',pkg);return 1;
+  }catch(e){toast('Ошибка отправки: '+(e&&e.message||e),1);return 0}
+ }
+ if(isWV){toast('В приложении нет моста отправки — установите новую сборку APK',1);return 0}
  const f=new File([blob],fname(d),{type:d.mime});
  if(navigator.canShare&&navigator.canShare({files:[f]})){
   try{await navigator.share({files:[f]});return 1}catch(e){if(e&&e.name==='AbortError')return 1}
@@ -556,7 +595,7 @@ async function sendFile(d){
  download(d);toast('Файл скачан — отправьте его из «Загрузок»',0);return 2;
 }
 async function shareFile(d,app){
- const r=await sendFile(d);
+ const r=await sendFile(d,app);
  if(r===2)setTimeout(()=>{location.href=app==='tg'?'tg://':'whatsapp://send'},900);
 }
 async function nativeShare(d){await sendFile(d)}
@@ -710,7 +749,7 @@ document.addEventListener('click',e=>{
    const x={t,v};if(t==='ph')x.o=$('#io').value.trim();
    if(i>=0)info[i]=x;else info.push(x);saveInfo();closeTop();render();return toast('Сохранено')}
   if(a==='open')window.open(url(id),'_blank');
-  else if(a==='dl')download(d);
+  else if(a==='dl')dlProgress(d,b);
   else if(a==='add')addModal();
   else if(a==='close')closeTop();
   else if(a==='save')saveDoc();
