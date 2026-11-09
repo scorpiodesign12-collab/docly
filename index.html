@@ -381,7 +381,7 @@ const addBtn=()=>`<button class="btn n" data-a="add">${ic('plus')}Добавит
 function renderNav(){
  const v=S.v,items=[NAV[0],NAV[1],...enCats().map(c=>['c:'+c[0],c[1],c[2]]),...(prefs.pw?[['pw','Пароли','lock']]:[]),NAV[2],NAV[3]];
  $('#side').innerHTML=`<div class="brand"><div class="logo">${ic('doc')}</div>Docly</div>`+items.map(n=>`<button class="nv ${v===n[0]?'on':''}" data-go="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
- $('#tabs').innerHTML=[['home','Главная','home'],['docs','Документы','doc'],['add','','plus'],['favs','Избранное','star'],['set','Настройки','gear']].map(n=>n[0]==='add'?`<button class="tb add" data-a="add" aria-label="Добавить">${ic('plus')}</button>`:`<button class="tb ${v===n[0]||(n[0]==='docs'&&v.startsWith('c:'))?'on':''}" data-go="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
+ $('#tabs').innerHTML=[['home','Главная','home'],['docs','Документы','doc'],['favs','Избранное','star'],['set','Настройки','gear']].map(n=>n[0]==='add'?`<button class="tb add" data-a="add" aria-label="Добавить">${ic('plus')}</button>`:`<button class="tb ${v===n[0]||(n[0]==='docs'&&v.startsWith('c:'))?'on':''}" data-go="${n[0]}">${ic(n[2])}${n[1]}</button>`).join('');
 }
 function render(){
  const v=S.v;renderNav();let h;
