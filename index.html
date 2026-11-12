@@ -209,8 +209,8 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 
 .pwn.big{width:46px;height:46px;border-radius:50%;font-size:20px;padding:0}
 .qh{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:26px 0 12px}
-.qk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.qb{display:flex;flex-direction:column;align-items:center;gap:9px;min-width:0;color:var(--text);font-size:13.5px;transition:.2s;background:none}
+.qk{display:grid;grid-template-columns:repeat(3,minmax(0,84px));gap:18px;justify-content:start}
+.qb{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;color:var(--text);font-size:12.5px;transition:.2s;background:none}
 .qb:active{transform:scale(.94)}.qb b{font-weight:700}
 .qi{display:block;width:100%;aspect-ratio:1}.qi svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 12px rgba(20,20,60,.18))}
 
@@ -229,6 +229,10 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 #wl.go .wlm{animation:wlfly 2.6s cubic-bezier(.45,.05,.55,.95) both}
 @keyframes wlbg{0%,55%{opacity:1}100%{opacity:0}}
 @keyframes wlfly{0%{transform:translate(0,0) rotate(0) scale(1)}14%{transform:translate(-30vw,-14vh) rotate(-18deg) scale(1.12)}32%{transform:translate(28vw,-32vh) rotate(14deg) scale(.95)}52%{transform:translate(-28vw,20vh) rotate(-14deg) scale(1.05)}72%{transform:translate(30vw,14vh) rotate(16deg) scale(.9)}100%{transform:translate(75vw,-90vh) rotate(32deg) scale(.35)}}
+
+.offp{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:95;width:min(92vw,360px);background:var(--navy);color:#fff;padding:14px 18px;border-radius:20px;display:grid;gap:8px;box-shadow:0 14px 40px rgba(10,20,80,.35);transition:.35s;animation:tin .35s both}
+.offp.out{opacity:0;transform:translate(-50%,10px)}.offp b{font-size:14px}.offp small{color:#B8C6F5;font-weight:700}
+.offp .bar{display:block;height:8px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}.offp .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#6DB5FF,#7FE3A5);transition:width .25s}
 </style>
 </head>
 <body>
@@ -381,28 +385,36 @@ async function init(fromLogin){
  render();incoming();
  if(!fromLogin&&localStorage.getItem('docly.load.'+me)!=='no')loadBlobs();
 }
-async function loadBlobs(){
- const bad=[];
+async function loadBlobs(showProg){
+ const bad=[],total=docs.length;let done=0,pill=null;
+ if(showProg){document.querySelectorAll('.offp').forEach(e=>e.remove());pill=document.createElement('div');pill.className='offp';pill.innerHTML='<b>Сохраняю для работы без интернета…</b><span class="bar"><i></i></span><small>0 из '+total+'</small>';document.body.appendChild(pill)}
+ const tick=()=>{done++;if(pill){pill.querySelector('i').style.width=Math.round(done/Math.max(1,total)*100)+'%';pill.querySelector('small').textContent=done+' из '+total}};
  await Promise.all(docs.map(async d=>{
   try{
    let b=null;try{b=await tx('readonly',s=>s.get(d.id))}catch(e){}
    if(!b&&d.src){b=await fetchBlob(d.src);try{await tx('readwrite',s=>s.put(b,d.id))}catch(e){}}
    if(b){files.set(d.id,b);d.size=b.size;if(b.type&&EXT[b.type])d.mime=b.type}else bad.push(d);
   }catch(e){bad.push(d)}
+  tick();
  }));
- if(bad.length){docs=docs.filter(d=>!bad.includes(d));const m=bad.filter(d=>d.src).map(d=>d.src);
+ const online=navigator.onLine!==false;
+ if(bad.length&&online){docs=docs.filter(d=>!bad.includes(d));const m=bad.filter(d=>d.src).map(d=>d.src);
   if(m.length)toast('Не найден файл: '+m[0]+(m.length>1?' и ещё '+(m.length-1):''),1)}
  save();dyn();
+ if(pill){
+  if(online)try{await getPdfjs()}catch(e){}
+  const ok=!bad.length;pill.innerHTML='<b>'+(ok?'Готово: всё работает без интернета':'Сохранено не всё: '+bad.length+' не загрузились')+'</b>';
+  setTimeout(()=>{pill.classList.add('out');setTimeout(()=>pill.remove(),400)},3500);
+ }
 }
-
 /* ===== Приветствие после входа: персонаж спрашивает про загрузку ===== */
 function welcome(){
- document.body.insertAdjacentHTML('beforeend',`<div id="wl"><div class="wlb"><img class="wlm" src="${MASCOT}" alt=""><h1>Хотите загрузить документы?</h1><p>Они сохранятся на устройстве и будут открываться даже без интернета</p><div class="wlbt"><button class="cta" data-a="wlyes">Да</button><button class="btn s" data-a="wlno">Нет</button></div></div></div>`);
+ document.body.insertAdjacentHTML('beforeend',`<div id="wl"><div class="wlb"><img class="wlm" src="${MASCOT}" alt=""><h1>Пользоваться без интернета?</h1><p>Сайт и приложение будут открываться без сети, а любой документ можно показать или отправить</p><div class="wlbt"><button class="cta" data-a="wlyes">Да</button><button class="btn s" data-a="wlno">Нет</button></div></div></div>`);
 }
 function wlGo(yes){
  const w=$('#wl');if(!w||w.classList.contains('go'))return;
  localStorage.setItem('docly.load.'+me,yes?'yes':'no');w.classList.add('go');
- if(yes)loadBlobs();
+ if(yes)setTimeout(()=>loadBlobs(1),600);
  setTimeout(()=>w.remove(),2700);
 }
 /* ===== Вход по ID ===== */
@@ -466,7 +478,7 @@ const NAV=[['home','Главная','home'],['docs','Документы','doc'],
 const ini=()=>esc((prof.name.trim()[0]||'?').toUpperCase());
 const QK=[['Паспорт','pass',/(^|[\s(,])паспорт/i,'linear-gradient(135deg,#F0583F,#C9181E)'],['СНИЛС','shield',/(^|[\s(,])снилс/i,'linear-gradient(135deg,#3CCB6A,#12994A)'],['ИНН','pie',/(^|[\s(,])инн/i,'linear-gradient(135deg,#FFA340,#EE7410)']];
 const QS=[
-'<svg viewBox="0 0 96 96"><defs><linearGradient id="qa1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EE3224"/><stop offset="1" stop-color="#A30D0D"/></linearGradient><linearGradient id="qa2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB347"/><stop offset="1" stop-color="#F0782A"/></linearGradient></defs><rect width="96" height="96" rx="24" fill="url(#qa1)"/><g fill="url(#qa2)"><path d="M48 31c-6 0-9 5-9 10v13c0 8 4 14 9 20 5-6 9-12 9-20V41c0-5-3-10-9-10z"/><path d="M39 40C28 35 21 41 19 53c6-3 12-2 17 4z"/><path d="M57 40c11-5 18 1 20 13-6-3-12-2-17 4z"/><circle cx="41.5" cy="26" r="4.5"/><circle cx="54.5" cy="26" r="4.5"/><path d="M41 74l7 11 7-11z"/></g></svg>',
+'<svg viewBox="0 0 96 96"><defs><linearGradient id="qa1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E5281C"/><stop offset="1" stop-color="#9A0C0C"/></linearGradient><linearGradient id="qa2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFCB6B"/><stop offset="1" stop-color="#F58A2E"/></linearGradient></defs><rect width="96" height="96" rx="24" fill="url(#qa1)"/><g fill="url(#qa2)" transform="translate(9.6 9.6) scale(.8)"><g><path d="M50 41C49 34 50 28 53 24C55 21 59 20 62 22L68 25L62 27C62 30 60 33 58 35L57 41Z"/><path d="M54 20L54.6 15L57 17.5L59 13.5L61 17.5L63.4 15L64 20Z"/><path d="M52 43C60 37 72 29 86 25L85 32L81 31L83 38L78 37L80 44L74 43L76 50L69 48L70 55L62 51L57 54L52 51Z"/><path d="M48 40H56L57.5 50C57.5 58 55 64 52 70L48 80Z"/><path d="M49 75L58 71L58 80L52 82L48 91Z"/><path d="M54 57L63 61L63 65L56 63Z"/></g><g transform="translate(96 0) scale(-1 1)"><path d="M50 41C49 34 50 28 53 24C55 21 59 20 62 22L68 25L62 27C62 30 60 33 58 35L57 41Z"/><path d="M54 20L54.6 15L57 17.5L59 13.5L61 17.5L63.4 15L64 20Z"/><path d="M52 43C60 37 72 29 86 25L85 32L81 31L83 38L78 37L80 44L74 43L76 50L69 48L70 55L62 51L57 54L52 51Z"/><path d="M48 40H56L57.5 50C57.5 58 55 64 52 70L48 80Z"/><path d="M49 75L58 71L58 80L52 82L48 91Z"/><path d="M54 57L63 61L63 65L56 63Z"/></g><path d="M42 15L43 9L46 12L48 6.5L50 12L53 9L54 15Z"/><rect x="27.8" y="45" width="2.6" height="34" rx="1.3"/><circle cx="29.1" cy="43.2" r="3.2"/><circle cx="66.5" cy="65" r="4.6"/><path d="M66.5 57v3.8M64.6 58.8h3.8" stroke="#F58A2E" stroke-width="1.6" fill="none"/><path d="M43 43H53V50C53 54 50.5 56 48 57.5C45.5 56 43 54 43 50Z" fill="#A30D0D"/><circle cx="48" cy="48.5" r="2.3" fill="#FFC15E"/></g></svg>',
 '<svg viewBox="0 0 96 96"><defs><linearGradient id="qb1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22C55E"/><stop offset="1" stop-color="#0B8F45"/></linearGradient><linearGradient id="qb2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6BE79A"/><stop offset="1" stop-color="#2FC46A"/></linearGradient></defs><rect width="96" height="96" rx="24" fill="url(#qb1)"/><path d="M48 19l25 9v20c0 15-10 26-25 32-15-6-25-17-25-32V28z" fill="url(#qb2)"/></svg>',
 '<svg viewBox="0 0 96 96"><defs><linearGradient id="qc1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF9A2E"/><stop offset="1" stop-color="#E4600A"/></linearGradient><linearGradient id="qc2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC27A"/><stop offset="1" stop-color="#FFA24A"/></linearGradient></defs><rect width="96" height="96" rx="24" fill="url(#qc1)"/><circle cx="46" cy="52" r="27" fill="url(#qc2)"/><path d="M52 44V16a29 29 0 0 1 29 28z" fill="#FFD9A8"/></svg>'];
 function openQuick(i){const q=QK[i],m=docs.filter(d=>q[2].test(d.title));
@@ -499,7 +511,7 @@ function render(){
   <div class="row"><div class="ci">${ic('folder')}</div><div>Категории<small>Ряд карточек категорий</small></div>${sw('cats',prefs.cats,'data-pref')}</div>
   <div class="row"><div class="ci">${ic('doc')}</div><div>Последние документы<small>Сворачиваемый список</small></div>${sw('recent',prefs.recent,'data-pref')}</div></div>
   <div class="card"><h3>Категории документов</h3>${CATS.map(c=>`<div class="row"><div class="ci">${ic(c[2])}</div><div>${c[1]}</div>${sw(c[0],!prefs.off.includes(c[0]),'data-cat')}</div>`).join('')}</div>
-  ${prefs.pw?`<div class="card"><h3>Пароли на других устройствах</h3><p>Пароли хранятся на этом устройстве. Чтобы перенести их на другое: сохраните копию здесь и загрузите её там.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn s" data-a="bkx">${ic('dl')}Сохранить копию</button><button class="btn s" data-a="bki">${ic('upload')}Загрузить копию</button></div></div>`:''}<div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 9${window.AndroidShare?' · APK: мост подключён':(isWV?' · APK: мост НЕ найден (старая сборка)':'')}</p></div>`;
+  ${prefs.pw?`<div class="card"><h3>Пароли на других устройствах</h3><p>Пароли хранятся на этом устройстве. Чтобы перенести их на другое: сохраните копию здесь и загрузите её там.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn s" data-a="bkx">${ic('dl')}Сохранить копию</button><button class="btn s" data-a="bki">${ic('upload')}Загрузить копию</button></div></div>`:''}<div class="card"><h3>Работа без интернета</h3><p>Сохранено для офлайна: ${files.size} из ${docs.length} ${word(docs.length)}. После сохранения сайт и приложение открываются без сети, документы можно показать и отправить.</p><button class="cta" data-a="offl" style="margin-top:0">${ic('dl')}Сохранить всё для офлайна</button></div><div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 10${window.AndroidShare?' · APK: мост подключён':(isWV?' · APK: мост НЕ найден (старая сборка)':'')}</p></div>`;
  }else{
   if(v==='pw')h=`<div class="top"><div style="display:flex;align-items:center;gap:14px"><button class="ib" data-go="home" aria-label="Назад">${ic('back')}</button><div><h1>Пароли</h1><p>Логины и пароли от сервисов</p></div></div><div style="display:flex;gap:8px"><button class="ib" data-pa="addc" aria-label="Добавить пароль" title="Добавить пароль" style="background:var(--blue);color:#fff">${ic('plus')}</button><button class="ib" data-pa="manage" aria-label="Выбрать сервисы" title="Выбрать сервисы">${ic('gear')}</button></div></div>${searchBox()}<div id="dyn" style="margin-top:18px"></div>`;
   else{const cat=v.startsWith('c:'),t=v==='docs'?'Документы':v==='favs'?'Избранное':catName(v.slice(2));
@@ -981,6 +993,7 @@ document.addEventListener('click',e=>{
   else if(a==='bkx')bkModal('x');
   else if(a==='bki')bkModal('i');
   else if(a==='bkgo')bkGo(b.dataset.m);
+  else if(a==='offl'){localStorage.setItem('docly.load.'+me,'yes');loadBlobs(1)}
   else if(a==='wlyes')wlGo(1);
   else if(a==='wlno')wlGo(0);
   else if(a==='login')doLogin();
