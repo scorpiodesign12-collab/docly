@@ -209,10 +209,10 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 
 .pwn.big{width:46px;height:46px;border-radius:50%;font-size:20px;padding:0}
 .qh{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:26px 0 12px}
-.qk{display:grid;grid-template-columns:repeat(3,minmax(0,84px));gap:18px;justify-content:start}
+.qk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .qb{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;color:var(--text);font-size:12.5px;transition:.2s;background:none}
 .qb:active{transform:scale(.94)}.qb b{font-weight:700}
-.qi{display:block;width:100%;aspect-ratio:1}.qi svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 12px rgba(20,20,60,.18))}
+.qi{display:block;width:100%;max-width:88px;aspect-ratio:1}.qi svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 12px rgba(20,20,60,.18))}
 
 .sb{overflow-x:hidden}.fm{grid-template-columns:minmax(0,1fr)}.pwlist{grid-template-columns:minmax(0,1fr)}.pwa{min-width:0}
 
@@ -233,6 +233,13 @@ svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .offp{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:95;width:min(92vw,360px);background:var(--navy);color:#fff;padding:14px 18px;border-radius:20px;display:grid;gap:8px;box-shadow:0 14px 40px rgba(10,20,80,.35);transition:.35s;animation:tin .35s both}
 .offp.out{opacity:0;transform:translate(-50%,10px)}.offp b{font-size:14px}.offp small{color:#B8C6F5;font-weight:700}
 .offp .bar{display:block;height:8px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden}.offp .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#6DB5FF,#7FE3A5);transition:width .25s}
+
+@media(min-width:861px){
+.qk{gap:16px}
+.qb{flex-direction:row;justify-content:flex-start;gap:18px;padding:16px 22px;background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--sh);font-size:19px}
+.qb:hover{transform:translateY(-3px)}.qb:active{transform:scale(.97)}
+.qi{width:68px;max-width:68px;flex:none}
+}
 </style>
 </head>
 <body>
@@ -511,7 +518,7 @@ function render(){
   <div class="row"><div class="ci">${ic('folder')}</div><div>Категории<small>Ряд карточек категорий</small></div>${sw('cats',prefs.cats,'data-pref')}</div>
   <div class="row"><div class="ci">${ic('doc')}</div><div>Последние документы<small>Сворачиваемый список</small></div>${sw('recent',prefs.recent,'data-pref')}</div></div>
   <div class="card"><h3>Категории документов</h3>${CATS.map(c=>`<div class="row"><div class="ci">${ic(c[2])}</div><div>${c[1]}</div>${sw(c[0],!prefs.off.includes(c[0]),'data-cat')}</div>`).join('')}</div>
-  ${prefs.pw?`<div class="card"><h3>Пароли на других устройствах</h3><p>Пароли хранятся на этом устройстве. Чтобы перенести их на другое: сохраните копию здесь и загрузите её там.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn s" data-a="bkx">${ic('dl')}Сохранить копию</button><button class="btn s" data-a="bki">${ic('upload')}Загрузить копию</button></div></div>`:''}<div class="card"><h3>Работа без интернета</h3><p>Сохранено для офлайна: ${files.size} из ${docs.length} ${word(docs.length)}. После сохранения сайт и приложение открываются без сети, документы можно показать и отправить.</p><button class="cta" data-a="offl" style="margin-top:0">${ic('dl')}Сохранить всё для офлайна</button></div><div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 10${window.AndroidShare?' · APK: мост подключён':(isWV?' · APK: мост НЕ найден (старая сборка)':'')}</p></div>`;
+  ${prefs.pw?`<div class="card"><h3>Пароли на других устройствах</h3><p>Пароли хранятся на этом устройстве. Чтобы перенести их на другое: сохраните копию здесь и загрузите её там.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn s" data-a="bkx">${ic('dl')}Сохранить копию</button><button class="btn s" data-a="bki">${ic('upload')}Загрузить копию</button></div></div>`:''}<div class="card"><h3>Работа без интернета</h3><p>Сохранено для офлайна: ${files.size} из ${docs.length} ${word(docs.length)}. После сохранения сайт и приложение открываются без сети, документы можно показать и отправить.</p><button class="cta" data-a="offl" style="margin-top:0">${ic('dl')}Сохранить всё для офлайна</button></div><div class="card"><h3>Хранилище</h3><p>${docs.length} ${word(docs.length)} · ${fmt(docs.reduce((a,d)=>a+d.size,0))}. Файлы хранятся только в этом браузере (IndexedDB), на сервер ничего не отправляется.</p><p class="note">Версия приложения: 11${window.AndroidShare?' · APK: мост подключён':(isWV?' · APK: мост НЕ найден (старая сборка)':'')}</p></div>`;
  }else{
   if(v==='pw')h=`<div class="top"><div style="display:flex;align-items:center;gap:14px"><button class="ib" data-go="home" aria-label="Назад">${ic('back')}</button><div><h1>Пароли</h1><p>Логины и пароли от сервисов</p></div></div><div style="display:flex;gap:8px"><button class="ib" data-pa="addc" aria-label="Добавить пароль" title="Добавить пароль" style="background:var(--blue);color:#fff">${ic('plus')}</button><button class="ib" data-pa="manage" aria-label="Выбрать сервисы" title="Выбрать сервисы">${ic('gear')}</button></div></div>${searchBox()}<div id="dyn" style="margin-top:18px"></div>`;
   else{const cat=v.startsWith('c:'),t=v==='docs'?'Документы':v==='favs'?'Избранное':catName(v.slice(2));
