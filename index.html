@@ -381,6 +381,14 @@ async function blobOf(d,cb){
 async function init(fromLogin){
  prof={name:USERS[me].name};loadInfo();
  docs=JSON.parse(localStorage.getItem(dkey())||'[]');
+ /* Одноразовая очистка аккаунта 1982: убираем скопированные документы владельца 2006 */
+ if(me==='1982'&&localStorage.getItem('docly.clean1982')!=='1'){
+  const mine=new Set((SEED['2006']||[]).map(x=>x[0]));
+  const rm=docs.filter(d=>String(d.id).startsWith('seed-')||mine.has(d.title));
+  docs=docs.filter(d=>!rm.includes(d));save();
+  rm.forEach(d=>{files.delete(d.id);try{tx('readwrite',s=>s.delete(d.id)).catch(()=>{})}catch(e){}});
+  localStorage.removeItem('docly.gone.1982');localStorage.setItem('docly.clean1982','1');
+ }
  try{pw=JSON.parse(localStorage.getItem(pwKey())||'{}')}catch(e){pw={}}
  try{pwOff=JSON.parse(localStorage.getItem(pwOffKey())||'[]')}catch(e){pwOff=[]}
  try{pwC=JSON.parse(localStorage.getItem(pwCKey())||'[]')}catch(e){pwC=[]}
